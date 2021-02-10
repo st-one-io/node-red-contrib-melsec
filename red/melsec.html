@@ -1,0 +1,472 @@
+<!-- 
+  Copyright: (c) 2021, ST-One
+  GNU General Public License v3.0+ (see LICENSE or https://www.gnu.org/licenses/gpl-3.0.txt) 
+-->
+
+<!-- --< Begin >--------- Focas Config (focas config) ---------------------- -->
+<script type="text/html" data-template-name="melsec endpoint">
+
+    <div class="form-row">
+        <label for="node-config-input-cycletime"><i class="fa fa-refresh"></i> <span data-i18n="melsec.endpoint.label.cycletime"></span></label>
+        <input type="text" id="node-config-input-cycletime" data-i18n="[placeholder]melsec.endpoint.label.cycletime" style="width: 60px;"> <span>ms</span>
+    </div>
+
+    <div class="form-row" style="margin-bottom:0;">
+        <label><i class="fa fa-list"></i> <span data-i18n="melsec.endpoint.label.variables.list"></span></label>
+    </div>
+    <div class="form-row node-input-variables-container-row" style="margin-bottom: 0px;">
+        <div id="node-config-input-variables-container-div" style="box-sizing: border-box; border-radius: 5px; height: 300px; padding: 5px; border: 1px solid #ccc; overflow-y:scroll;">
+            <ol id="node-config-input-variables-container" style=" list-style-type:none; margin: 0;"></ol>
+        </div>
+    </div>
+    <div class="form-row">
+        <a href="#" class="editor-button editor-button-small" id="node-config-melsec-endpoint-var-export" style="margin: 4px; float: right"><i class="fa fa-download"></i> <span data-i18n="melsec.endpoint.label.variables.export"></span></a>
+        <input type="file" id="node-config-melsec-endpoint-var-import" style="display: none"/>
+        <a href="#" class="editor-button editor-button-small" id="node-config-melsec-endpoint-var-import-btn" style="margin: 4px; float: right"><i class="fa fa-upload"></i> <span data-i18n="melsec.endpoint.label.variables.import"></span></a>
+        <a href="#" class="editor-button editor-button-small" id="node-config-input-add-variable" style="margin: 4px;"><i class="fa fa-plus"></i> <span data-i18n="melsec.endpoint.label.variables.add"></span></a>
+        <a href="#" class="editor-button editor-button-small" id="node-config-melsec-endpoint-var-clean" style="margin: 4px;"><i class="fa fa-trash-o"></i> <span data-i18n="melsec.endpoint.label.variables.clean"></span></a>
+    </div>
+
+    <br>
+
+    <div class="form-row">
+        <label for="node-config-input-name"><i class="fa fa-tag"></i> <span data-i18n="melsec.label.name"></span></label>
+        <input type="text" id="node-config-input-name" data-i18n="[placeholder]melsec.label.name">
+    </div>
+    
+</script>
+
+<script type="text/html" data-help-name="melsec endpoint">
+</script>
+
+<script type="text/javascript">
+    function validateMXAddress(address) {
+        if (!address) return 'ERR_PARSE_EMPTY';
+
+		let MELSEC_REGEX_ADDR = /^([A-Z]{1})([A-Z]+)?(\d+)(?:\.(\d+))?(?:,(\d+))?$/;
+        let MELSEC_MEM_AREA = ["S","X","Y","M","D"];
+        let MELSEC_TYPE_MODIFIER = ["INT", "DINT", "WORD", "DWORD", "REAL", "LREAL"];
+
+        let match = address.match(MELSEC_REGEX_ADDR);
+		if (!match) return 'ERR_PARSE_UNKNOWN_FORMAT';
+
+        let match_memArea = match[1];
+        let match_typeModifier = match[2];
+        let match_device = match[3];
+        let match_bit = match[4];
+        let match_arr = match[5];
+
+        if (!MELSEC_MEM_AREA.includes(match_memArea)) return 'ERR_PARSE_MEM_AREA';
+        
+        if (match_typeModifier) {
+            if (!MELSEC_TYPE_MODIFIER.includes(match_typeModifier)) return 'ERR_PARSE_TYPE_MODIFIER';
+        }
+
+        let deviceOffset = parseInt(match_device);
+        if (isNaN(deviceOffset)) return 'ERR_PARSE_DEVICE_OFFSET';
+
+        if (match_bit) {
+            let bitOffset = parseInt(match_bit);
+            if (isNaN(bitOffset)) return 'ERR_PARSE_BIT_OFFSET';
+        }
+
+        if (match_arr) {
+            let arrayLength = parseInt(match_arr);
+            if (isNaN(arrayLength)) return 'ERR_PARSE_ARRAY_LENGTH';
+        }
+        
+        return null;
+    }
+    
+    function validateAddressList(list) {
+		for (var i = 0; i < list.length; i++){
+			var elm = list[i];
+			if (!elm.name) return false;
+			if (validateMXAddress(elm.addr)) return false;
+		}
+		return true;
+	}
+    
+    RED.nodes.registerType('melsec endpoint', {
+        category: 'config',
+        color: '#FFAAAA',
+        defaults: {
+            name: {
+                value: ""
+            },
+            cycletime: {
+				value: 1000
+			},
+            vartable: {
+				value: [{
+					name: "",
+					addr: ""
+				}],
+				validate: validateAddressList
+			}
+        },
+        label: function () {
+			var self = this;
+
+			if (this.name) return this.name;
+
+			return "melsec endpoint";
+		},
+        oneditprepare: function () {
+            var self = this;
+			var tt = this._.bind(this);
+
+            var labelName = this._("melsec.endpoint.label.variables.name");
+			var labelAddr = this._("melsec.endpoint.label.variables.addr");
+			var labelDel = this._("melsec.endpoint.label.variables.del");
+            
+            $("#node-config-input-cycletime").spinner({
+                min: 0
+            });
+
+            function generateVariable(variable) {
+                var curTooltip;
+				var previousValue = variable.addr;
+				var container = $('<li/>', {
+					style: "background: #fff; margin:0; padding:8px 0px; border-bottom: 1px solid #ccc;"
+				});
+				var row1 = $('<div/>').appendTo(container);
+
+				var variableAddr = $('<input/>', {
+					style: "width: 110px; margin-right: 10px;",
+					class: "node-config-input-variable-addr",
+					type: "text",
+					placeholder: labelAddr
+				}).appendTo(row1);
+
+				var variableName = $('<input/>', {
+					style: "width: 250px",
+					class: "node-config-input-variable-name",
+					type: "text",
+					placeholder: labelName
+				}).appendTo(row1);
+
+				var finalspan = $('<span/>', {
+					style: "float: right; margin-right: 10px;"
+				}).appendTo(row1);
+				var deleteButton = $('<a/>', {
+					href: "#",
+					class: "editor-button editor-button-small",
+					style: "margin-top: 7px; margin-left: 5px;",
+					title: labelDel
+				}).appendTo(finalspan);
+
+				$('<i/>', {
+					class: "fa fa-remove"
+				}).appendTo(deleteButton);
+
+				deleteButton.click(function () {
+					container.css({
+						"background": "#fee"
+					});
+					container.fadeOut(150, function () {
+						$(this).remove();
+					});
+					if (curTooltip) curTooltip.close();
+				});
+
+                variableAddr.change(function () {
+					//validate address
+					var curVal = variableAddr.val();
+					var valError = validateMXAddress(curVal);
+					if (valError) {
+						variableAddr.addClass('input-error')
+						var errorText = tt("melsec.validation." + valError);
+						if (curTooltip) {
+							curTooltip.setContent(errorText);
+							curTooltip.open();
+						} else if (RED.popover && RED.popover.tooltip){
+							curTooltip = RED.popover.tooltip(variableAddr, errorText);
+							curTooltip.open();
+						}
+					} else {
+						variableAddr.removeClass('input-error');
+						if(curTooltip) {
+							curTooltip.close();
+							curTooltip.setContent('');
+							//hack to remove the popup, as Node-RED don't offer
+							// and "unbind" function. May break in the future
+							variableAddr.off('mouseenter mouseleave disabled');
+							curTooltip = null;
+						}
+					}
+
+					//update name if matching old one
+					if (previousValue && variableName.val() == previousValue) {
+						variableName.val(curVal);
+					}
+					previousValue = curVal;
+				});
+
+				//populate data
+				variableAddr.val(variable.addr);
+				variableName.val(variable.name);
+				variableAddr.change();
+
+				$("#node-config-input-variables-container").append(container);
+			}
+
+			function cleanVarTable() {
+				$("#node-config-input-variables-container").children().remove();
+			}
+
+			function populateVarTable() {
+				if (self.vartable) {
+					if (typeof self.vartable == 'string') {
+						self.vartable = JSON.parse(self.vartable);
+					}
+					for (var i = 0; i < self.vartable.length; i++) {
+						generateVariable(self.vartable[i]);
+					}
+				}
+			}
+
+			$("#node-config-input-add-variable").click(function () {
+                generateVariable({
+					name: "",
+					addr: ""
+				});
+			});
+
+            $("#node-config-melsec-endpoint-var-clean").click(cleanVarTable);
+
+            populateVarTable();
+
+            // export
+			function exportCSV() {
+				var vars = $("#node-config-input-variables-container").children();
+				var lines = [];
+
+				vars.each(function (i) {
+					var elm = $(this);
+					lines.push([
+						elm.find(".node-config-input-variable-addr").val(), //addr
+						elm.find(".node-config-input-variable-name").val() //name
+					].join(';'));
+				});
+
+				saveAs(new Blob([lines.join('\r\n')]), 'melsecEndpoint' + (self.name ? '_' + self.name : '') + '.csv');
+			}
+            $('#node-config-melsec-endpoint-var-export').click(exportCSV);
+
+			// import
+			function importCSV(e) {
+				var file = e.target.files[0];
+				if (!file) {
+					return;
+				}
+				var reader = new FileReader();
+				reader.onload = function (e) {
+					var res = [], i, fields;
+					var contents = e.target.result || '';
+					var lines = contents.split(/[\r\n]+/);
+
+					if (!lines.length) {
+						alert('file is empty!');
+						return;
+					}
+
+					for (i = 0; i < lines.length; i++) {
+
+						lines[i] = lines[i].trim();
+						if (lines[i] == '') continue;
+
+						fields = lines[i].split(/[\t;]/);
+
+						if (fields.length < 2) {
+							alert('line must have at least two parameters, address and name');
+							return;
+						}
+						res.push({
+							addr: fields[0],
+							name: fields[1]
+						});
+					}
+
+					if (res.length) {
+						cleanVarTable();
+						self.vartable = res;
+						populateVarTable();
+					}
+				};
+				reader.readAsText(file);
+			}
+			$('#node-config-melsec-endpoint-var-import').on('change', importCSV);
+			$('#node-config-melsec-endpoint-var-import-btn').click(function () {
+				$('#node-config-melsec-endpoint-var-import').click();
+			})
+
+
+        },
+        oneditsave: function () {
+			var node = this;
+			var vars = $("#node-config-input-variables-container").children();
+			node.vartable = [];
+
+			vars.each(function (i) {
+				var elm = $(this);
+				var addr = elm.find(".node-config-input-variable-addr").val();
+				var name = elm.find(".node-config-input-variable-name").val();
+				var v = {
+					addr: addr,
+					name: name || addr
+				}
+				node.vartable.push(v);
+			});
+		}
+    });
+</script>
+<!-- --< End >--------- Focas Config (focas config) ---------------------- -->
+
+
+<!-- --< Begin >--------- Focas Node (focas node) ---------------------- -->
+
+<script type="text/html" data-template-name="melsec in">
+
+    <div class="form-row" style="min-width: 550px">
+        <label for="node-input-endpoint">
+            <i class="fa fa-cog"></i>
+            <span data-i18n="melsec.in.label.endpoint"></span>
+        </label>
+        <input type="text" id="node-input-endpoint" data-i18n="[placeholder]melsec.in.label.endpoint">
+    </div>
+
+    <div class="form-row">
+		<label for="node-input-mode"><i class="fa fa-sliders"></i> <span data-i18n="melsec.in.label.mode"></span></label>
+		<select type="text" id="node-input-mode">
+			<option value="single" data-i18n="melsec.in.mode.single"></option>
+			<option value="all-split" data-i18n="melsec.in.mode.all-split"></option>
+			<option value="all" data-i18n="melsec.in.mode.all"></option>
+		</select>
+	</div>
+
+	<div class="form-row melsec-input-var-row">
+		<label for="node-input-variable"><i class="fa fa-random"></i> <span data-i18n="melsec.in.label.variable"></span></label>
+		<select type="text" id="node-input-variable">
+		</select>
+    <span id="melsec-custom-var-addr" style="margin-left:5px"></span>
+	</div>
+
+	<div class="form-row">
+		<label>&nbsp;</label>
+		<input type="checkbox" id="node-input-diff" style="display: inline-block; width: auto; vertical-align: top;">
+		<label for="node-input-diff" style="width:70%;"><span data-i18n="melsec.in.label.diff"></span></label>
+	</div> 
+
+    <div class="form-row">
+        <label for="node-input-name">
+            <i class="fa fa-tag"></i>
+            <span data-i18n="melsec.label.name"></span>
+        </label>
+        <input type="text" id="node-input-name" data-i18n="[placeholder]melsec.label.name">
+    </div> 
+
+</script>
+
+<script type="text/html" data-help-name="melsec in">
+</script>
+
+<script type="text/javascript">
+    (function () {
+
+        RED.nodes.registerType('melsec in', {
+            category: 'plc',
+            color: '#F35770',
+            defaults: {
+                endpoint: {
+                    value: "",
+                    type: "melsec endpoint"
+                },
+                mode: {
+				    value: "single"
+                },
+                variable: {
+                    value: ""
+                },
+                diff: {
+                    value: true
+                },
+                name: {
+                    value: ""
+                }
+            },
+            inputs: 0,
+            outputs: 1,
+            icon: "serial.png",
+            paletteLabel: "Melsec",
+            label: function () {
+			    if (this.name) return this.name;
+                return this._("melsec.in.label.name");
+            },
+            labelStyle: function () {
+                return this.name ? "node_label_italic" : "";
+            },
+            oneditprepare: function () {
+                var self = this;
+
+                var varList = $('#node-input-variable');
+                var varAddr = $('#melsec-custom-var-addr');
+                var modeList = $('#node-input-mode');
+                var endpointList = $("#node-input-endpoint");
+                var vars = [];
+
+                function updateVarList(endpointId) {
+                    $('#node-input-variable option').remove();
+
+                    var endpointNode = RED.nodes.node(endpointId);
+                    if (!endpointNode) return;
+                    vars = endpointNode.vartable || [];
+                    if (typeof vars === 'string') vars = JSON.parse(vars);
+
+                    varList.append($('<option/>', {
+                        disabled: "disabled",
+                        selected: "selected",
+                        style: "display:none;",
+                        text: vars.length ? self._("melsec.in.label.variable-select") : self._("melsec.in.label.variable-novar")
+                    }));
+
+                    $.each(vars, function (i, val) {
+                        varList.append($('<option/>', {
+                            value: val.name || val.addr,
+                            text: val.name || val.addr
+                        }));
+                        if (val.name == self.variable) {
+                            varList.val(self.variable);
+                        }
+                    });
+                }
+
+                varList.change(function () {
+                    $.each(vars, function (i, val) {
+                        if (varList.val() == val.name) {
+                            varAddr[0].innerText = val.addr;
+                            return true;
+                        }
+                    });
+                });
+
+                endpointList.change(function () {
+                    updateVarList(endpointList.val());
+                });
+                updateVarList(self.endpoint);
+
+                modeList.change(function () {
+                    if (modeList.val() == "single") {
+                        varList.parent().show();
+                    } else {
+                        varList.parent().hide();
+                    }
+                });
+                modeList.change();
+            }
+        });
+
+    })();
+</script>
+
+<!-- --< End >--------- Focas Node (focas node) ---------------------- -->

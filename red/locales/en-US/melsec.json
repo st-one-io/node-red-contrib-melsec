@@ -1,0 +1,63 @@
+{
+    "melsec":{
+        "endpoint": {
+            "status": {
+                "online": "online",
+                "offline":"offline",
+                "connecting": "connecting",
+                "unknown": "unknown"
+            },
+            "label": {
+                "variables": {
+                    "list": "Variable list",
+                    "add": "Add",
+                    "clean": "Remove all",
+                    "del": "Remove",
+                    "name": "Var. Name",
+                    "addr": "Var. Address",
+                    "export": "Export",
+                    "import": "Import"
+                },
+                "cycletime": "Cycle Time"
+            },
+            "error": {
+                "invalidtimeinterval": "Invalid time interval for cycle time of \"__interval__\""
+            },
+            "info": {
+                "cycletimetooshort": "Cycle time too short, enforcing minimum of __min__ ms",
+                "novars": "No variables configured, skipping cyclic reading"
+            }
+        },
+        "in": {
+            "label": {
+                "name": "melsec in",
+                "endpoint": "PLC",
+                "mode": "Mode",
+                "variable": "Variable",
+                "diff": "Emit only when value changes (diff)",
+                "variable-select": "Select a variable",
+                "variable-novar": "No variables"
+            },
+            "mode": {
+                "single": "Single variable",
+                "all-split": "All variables, one per message",
+                "all": "All variables"
+            },
+            "error": {
+                "missingconfig": "Missing configuration"
+            }
+        },
+        "label": {
+            "name": "Name"
+        },
+        "validation": {
+            "ERR_PARSE_EMPTY": "Address cannot be empty",
+            "ERR_PARSE_UNKNOWN_FORMAT": "Unknown address format, check node's help section",
+            "ERR_PARSE_MEM_AREA": "Memory area identifier is unknown or invalid",
+            "ERR_PARSE_TYPE_MODIFIER": "Type modifier is unknown or invalid",
+            "ERR_PARSE_DEVICE_OFFSET": "Device offset is unknown or invalid",
+            "ERR_PARSE_BIT_OFFSET": "Bit offset is unknown or invalid",
+            "ERR_PARSE_ARRAY_LENGTH": "Array length is unknown or invalid"
+        }
+    }
+}
