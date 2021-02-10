@@ -44,7 +44,7 @@
         if (!address) return 'ERR_PARSE_EMPTY';
 
 		let MELSEC_REGEX_ADDR = /^([A-Z]{1})([A-Z]+)?(\d+)(?:\.(\d+))?(?:,(\d+))?$/;
-        let MELSEC_MEM_AREA = ["S","X","Y","M","D"];
+        let MELSEC_MEM_AREA = ["S","X","Y","T","M","C","PY","OT","PM","OC","RT","RC","TV","CV16","CV32","SPECIAL_D","D"];
         let MELSEC_TYPE_MODIFIER = ["INT", "DINT", "WORD", "DWORD", "REAL", "LREAL"];
 
         let match = address.match(MELSEC_REGEX_ADDR);
