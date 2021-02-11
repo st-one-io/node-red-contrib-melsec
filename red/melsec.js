@@ -9,7 +9,7 @@ const {melsecAdapter} = require('node-melsec');
 const MIN_CYCLE_TIME = 50;
 
 module.exports = function (RED) {
-    // ----------- Focas Endpoint -----------
+    // ----------- Melsec Endpoint -----------
     function generateStatus(status, val) {
         var obj;
         if (typeof val != 'string' && typeof val != 'number' && typeof val != 'boolean') {
@@ -75,6 +75,14 @@ module.exports = function (RED) {
         }
         return false;
     }
+
+    function nrInputShim(node, fn) {
+        node.on('input', function (msg, send, done) {
+            send = send || node.send;
+            done = done || (err => err && node.error(err, msg));
+            fn(msg, send, done);
+        });
+    }
     
     // <Begin> --- Endpoint ---
     function MelsecEndpoint(config) {
@@ -133,13 +141,13 @@ module.exports = function (RED) {
 
             if (isNaN(time) || time < 0) {
                 that.error(RED._("melsec.endpoint.error.invalidtimeinterval", { interval: interval }));
-                return
+                return false
             }
 
             clearInterval(_td);
 
             // don't set a new timer if value is zero
-            if (!time) return;
+            if (!time) return false;
 
             if (time < MIN_CYCLE_TIME) {
                 that.warn(RED._("melsec.endpoint.info.cycletimetooshort", { min: MIN_CYCLE_TIME }));
@@ -148,6 +156,8 @@ module.exports = function (RED) {
 
             currentCycleTime = time;
             _td = setInterval(doCycle, time);
+
+            return true;
         }
 
         async function melsecSetUp(vars) {
@@ -177,6 +187,12 @@ module.exports = function (RED) {
             updateCycleTime(currentCycleTime);
         });
 
+        this.on('__DO_CYCLE__', doCycle);
+        this.on('__UPDATE_CYCLE__', (obj) => {
+            obj.err = updateCycleTime(obj.msg.payload);
+            that.emit('__UPDATE_CYCLE_RES__', obj);
+        });
+
         this.on('close', done => {
             
             if (_td) clearInterval(_td);
@@ -189,7 +205,7 @@ module.exports = function (RED) {
     }
 
     RED.nodes.registerType('melsec endpoint', MelsecEndpoint);
-    // <End> --- Config
+    // <End> --- Endpoint
 
     // <Begin> --- Melsec In
     function MelsecIn(config) {
@@ -199,7 +215,7 @@ module.exports = function (RED) {
         let endpoint = RED.nodes.getNode(config.endpoint);
 
         if (!endpoint) {
-            that.error(RED._("melsec.in.error.missingconfig"));
+            that.error(RED._("melsec.error.missingconfig"));
             return;
         }
 
@@ -270,6 +286,54 @@ module.exports = function (RED) {
     }
 
     RED.nodes.registerType('melsec in', MelsecIn);
-    // <End> --- Node
+    // <End> --- Melsec In
 
+    // <Begin> --- Melsec Control
+    function MelsecControl(config) {
+        RED.nodes.createNode(this, config);
+
+        let endpoint = RED.nodes.getNode(config.endpoint);
+
+        if (!endpoint) {
+            this.error(RED._("melsec.error.missingconfig"));
+            return;
+        }
+
+        function onMessage(msg, send, done) {
+            let func = config.function || msg.function;
+            switch (func) {
+                case 'cycletime':
+                    endpoint.emit('__UPDATE_CYCLE__', {
+                        msg: msg,
+                        send: send,
+                        done: done
+                    });
+                    break;
+                case 'trigger':
+                    endpoint.emit('__DO_CYCLE__');
+                    send(msg);
+                    done();
+                    break;
+
+                default:
+                    this.error(RED._("melsec.error.invalidcontrolfunction", { function: config.function }), msg);
+            }
+        }
+
+        endpoint.on('__UPDATE_CYCLE_RES__', (res) => {
+            let err = res.err;
+            if (!err) {
+                res.done(err);
+            } else {
+                res.send(res.msg);
+                res.done();
+            }
+        });
+
+
+        nrInputShim(this, onMessage);
+
+    }
+    RED.nodes.registerType("melsec control", MelsecControl);
+    // <End> --- Melsec Control
 };

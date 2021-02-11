@@ -26,6 +26,15 @@
             "info": {
                 "cycletimetooshort": "Cycle time too short, enforcing minimum of __min__ ms",
                 "novars": "No variables configured, skipping cyclic reading"
+            },
+            "validation": {
+                "ERR_PARSE_EMPTY": "Address cannot be empty",
+                "ERR_PARSE_UNKNOWN_FORMAT": "Unknown address format, check node's help section",
+                "ERR_PARSE_MEM_AREA": "Memory area identifier is unknown or invalid",
+                "ERR_PARSE_TYPE_MODIFIER": "Type modifier is unknown or invalid",
+                "ERR_PARSE_DEVICE_OFFSET": "Device offset is unknown or invalid",
+                "ERR_PARSE_BIT_OFFSET": "Bit offset is unknown or invalid",
+                "ERR_PARSE_ARRAY_LENGTH": "Array length is unknown or invalid"
             }
         },
         "in": {
@@ -42,22 +51,25 @@
                 "single": "Single variable",
                 "all-split": "All variables, one per message",
                 "all": "All variables"
+            }
+        },
+        "control": {
+            "label": {
+                "name": "melsec control",
+                "function": "Function",
+                "endpoint": "PLC"
             },
-            "error": {
-                "missingconfig": "Missing configuration"
+            "function": {
+                "cycletime": "Cycle time",
+                "trigger": "Trigger read"
             }
         },
         "label": {
             "name": "Name"
         },
-        "validation": {
-            "ERR_PARSE_EMPTY": "Address cannot be empty",
-            "ERR_PARSE_UNKNOWN_FORMAT": "Unknown address format, check node's help section",
-            "ERR_PARSE_MEM_AREA": "Memory area identifier is unknown or invalid",
-            "ERR_PARSE_TYPE_MODIFIER": "Type modifier is unknown or invalid",
-            "ERR_PARSE_DEVICE_OFFSET": "Device offset is unknown or invalid",
-            "ERR_PARSE_BIT_OFFSET": "Bit offset is unknown or invalid",
-            "ERR_PARSE_ARRAY_LENGTH": "Array length is unknown or invalid"
+        "error": {
+            "missingconfig": "Missing configuration",
+            "invalidcontrolfunction": "Invalid control function \"__function__\""
         }
     }
 }
