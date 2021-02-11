@@ -83,7 +83,7 @@ module.exports = function (RED) {
         let readDeferred = 0;
         let currentCycleTime = config.cycletime;
         let _td;
-        let that = this
+        let that = this;
         
         RED.nodes.createNode(this, config);
 

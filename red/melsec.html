@@ -37,6 +37,52 @@
 </script>
 
 <script type="text/html" data-help-name="melsec endpoint">
+	<p>Configures the connection to a PLC</p>
+	<p>This node was created by <a href="https://st-one.io" target="_blank">ST-One</a></p>
+
+	<h3>Details</h3>
+	<p>
+		The <b>Cycle time</b> configuration specifies the time interval in which
+		all variables will be read from the PLC. A value of <code>0</code> disables
+		automatic reading.
+	</p>
+
+	<h3>Variable addressing</h3>
+	<ul>
+		<li>MEMORY AREA.</li>
+		<ul>
+			<li>(S,X,Y,M,D...).</li>
+		</ul>
+		<li>TYPE MODIFIER <strong>Can be empty if needed.</strong></li>
+		<ul>
+			<li>INT (Signed 16Bits).</li>
+			<li>DINT (Signed 32Bits).</li>
+			<li>WORD (Unsigned 16Bits).</li>
+			<li>DWORD (Unsigned 32Bits).</li>
+			<li>REAL (Float Single Precision 32Bits).</li>
+			<li>REAL (Float Double Precision 64Bits).</li>
+		</ul>
+		<li>DEVICE OFFSET (Address Number).</li>
+		<ul>
+			<li>0,1,2 (Ex. D20 (20 is the device offset)).</li>
+		</ul>
+		<li>BIT OFFSET(.) <strong>Can be empty if needed.</strong></li>
+		<ul>
+			<li>D20.1 (Reads bit 1 from D20 address.)</li>
+		</ul>
+		<li>ARRAY LENGTH(,) <strong>Can be empty if needed.</strong></li>
+		<ul>
+			<li>D20,4 (Reads 4 address from D20, D21, D22 and D23).</li>
+		</ul>
+	</ul>
+
+	<h4>Examples</h4>
+	<ul>
+		<li>DDINT20,4: Reads D20-D21,D22-D23,D24-D25,D26-D27</li>
+		<li>DINT20,4: Reads D20,D21,D22,D23</li>
+		<li>Y0</li>
+	</ul>
+
 </script>
 
 <script type="text/javascript">
@@ -369,6 +415,51 @@
 </script>
 
 <script type="text/html" data-help-name="melsec in">
+
+	<p>Reads data from a Mitsubishi FX PLC</p>
+	<p>This node was created by <a href="https://st-one.io" target="_blank">ST-One</a></p>
+
+	<h3>Outputs</h3>
+	<dl class="message-properties">
+		<dt>payload<span class="property-type">any</span></dt>
+		<dd>
+			The value(s) as read from the PLC. The format and type of the payload
+			depends on the configured "Mode"
+		</dd>
+
+		<dt>topic<span class="property-type">string</span></dt>
+		<dd>
+			The name of the variable, when the message refers to a single variable
+			(that is, when mode is "Single Variable" or "All variables, one per
+			message")
+		</dd>
+	</dl>
+	
+	<h3>Details</h3>
+	<p>
+		All data is read cyclically from the PLC as configured in the <i>melsec endpoint</i>, 
+		but there are three modes of making it available in a flow:
+	</p>
+	<ul>
+		<li>
+			<b>Single variable:</b> A single variable can be selected from the configured 
+			variables, and a message is sent every cycle, or only when it changes if 
+			<i>diff</i> is checked. <code>msg.payload</code> contains the variable's value
+			and <code>msg.topic</code> has the variable's name.
+		</li>
+		<li>
+			<b>All variables, one per message:</b> Like the <i>Single variable</i> mode, 
+			but for all variables configured. If <i>diff</i> is checked, a message is sent
+			everytime any variable changes. If <i>diff</i> is unchecked, one message is sent 
+			for every variable, in every cycle. Care must be taken about the number of 
+			messages per second in this mode.
+		</li>
+		<li>
+			<b>All variables:</b> In this mode, <code>msg.payload</code> contains an object 
+			with all configured variables and their values. If <i>diff</i> is checked, a 
+			message is sent if at least one of the variables changes its value.
+		</li>
+	</ul>
 </script>
 
 <script type="text/javascript">
