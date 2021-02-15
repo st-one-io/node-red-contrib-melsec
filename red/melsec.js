@@ -131,8 +131,6 @@ module.exports = function (RED) {
 
             manageStatus('online');
 
-            console.log("Endpoint 1:", values);
-
             var changed = false;
             that.emit('__ALL__', values);
             Object.keys(values).forEach(function (key) {
@@ -205,6 +203,7 @@ module.exports = function (RED) {
             await melsec.close().catch(onError);
             if (!connecting) {
                 connecting = true;
+                manageStatus('connecting');
                 melsec.open().catch((e) => {
                     connecting = false;
                     onError(e);
@@ -224,7 +223,6 @@ module.exports = function (RED) {
             manageStatus('offline');
             that.error(e && e.toString());
         }
-
         manageStatus('offline');
         
         const melsec = new melsecAdapter();
@@ -234,10 +232,13 @@ module.exports = function (RED) {
         melsec.on('error', onError);
 
         connecting = true;
+        
+        manageStatus('connecting');
         melsec.open().catch((e) => {
             connecting = false;
             onError(e);
         });
+        
 
         this.on('__DO_CYCLE__', doCycle);
         this.on('__UPDATE_CYCLE__', (obj) => {
@@ -267,7 +268,7 @@ module.exports = function (RED) {
         
     }
 
-    RED.nodes.registerType('melsec endpoint', MelsecEndpoint);
+    RED.nodes.registerType('melsec fx endpoint', MelsecEndpoint);
     // <End> --- Endpoint
 
     // <Begin> --- Melsec In
@@ -284,7 +285,6 @@ module.exports = function (RED) {
         }
 
         function sendMsg(data, key, status) {
-            console.log("In 2:", data, key);
             if (key === undefined) key = '';
             if (data instanceof Date) data = data.getTime();
             var msg = {
@@ -311,7 +311,6 @@ module.exports = function (RED) {
         }
 
         function onDataSelect(data) {
-            console.log("In 1:", data);
             onData(data[config.variable]);
         }
 
@@ -361,7 +360,7 @@ module.exports = function (RED) {
 
     }
 
-    RED.nodes.registerType('melsec in', MelsecIn);
+    RED.nodes.registerType('melsec fx in', MelsecIn);
     // <End> --- Melsec In
 
     // <Begin> --- Melsec Control
@@ -425,6 +424,6 @@ module.exports = function (RED) {
         });
 
     }
-    RED.nodes.registerType("melsec control", MelsecControl);
+    RED.nodes.registerType("melsec fx control", MelsecControl);
     // <End> --- Melsec Control
 };

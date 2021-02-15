@@ -3,7 +3,7 @@
   GNU General Public License v3.0+ (see LICENSE or https://www.gnu.org/licenses/gpl-3.0.txt) 
 -->
 
-<script type="text/html" data-template-name="melsec endpoint">
+<script type="text/html" data-template-name="melsec fx endpoint">
 
     <div class="form-row">
         <label for="node-config-input-cycletime"><i class="fa fa-refresh"></i> <span data-i18n="melsec.endpoint.label.cycletime"></span></label>
@@ -35,7 +35,7 @@
     
 </script>
 
-<script type="text/html" data-help-name="melsec endpoint">
+<script type="text/html" data-help-name="melsec fx endpoint">
 	<p>Configures the connection to a PLC</p>
 	<p>This node was created by <a href="https://st-one.io" target="_blank">ST-One</a></p>
 
@@ -132,7 +132,7 @@
 		return true;
 	}
     
-    RED.nodes.registerType('melsec endpoint', {
+    RED.nodes.registerType('melsec fx endpoint', {
         category: 'config',
         color: '#FFAAAA',
         defaults: {
@@ -155,7 +155,7 @@
 
 			if (this.name) return this.name;
 
-			return "melsec endpoint";
+			return "melsec fx endpoint";
 		},
         oneditprepare: function () {
             var self = this;
@@ -369,7 +369,7 @@
 
 <!-- ######################################################################################## -->
 
-<script type="text/html" data-template-name="melsec in">
+<script type="text/html" data-template-name="melsec fx in">
 
     <div class="form-row" style="min-width: 550px">
         <label for="node-input-endpoint">
@@ -411,7 +411,7 @@
 
 </script>
 
-<script type="text/html" data-help-name="melsec in">
+<script type="text/html" data-help-name="melsec fx in">
 
 	<p>Reads data from a Mitsubishi FX PLC</p>
 	<p>This node was created by <a href="https://st-one.io" target="_blank">ST-One</a></p>
@@ -462,13 +462,13 @@
 <script type="text/javascript">
     (function () {
 
-        RED.nodes.registerType('melsec in', {
+        RED.nodes.registerType('melsec fx in', {
             category: 'plc',
             color: '#F35770',
             defaults: {
                 endpoint: {
                     value: "",
-                    type: "melsec endpoint"
+                    type: "melsec fx endpoint"
                 },
                 mode: {
 				    value: "single"
@@ -486,7 +486,7 @@
             inputs: 0,
             outputs: 1,
             icon: "serial.png",
-            paletteLabel: "melsec in",
+            paletteLabel: "melsec fx in",
             label: function () {
 			    if (this.name) return this.name;
                 return this._("melsec.in.label.name");
@@ -559,7 +559,7 @@
 
 <!-- ######################################################################################## -->
 
-<script type="text/html" data-template-name="melsec control">
+<script type="text/html" data-template-name="melsec fx control">
 	<div class="form-row">
 		<label for="node-input-endpoint"><i class="fa fa-bolt"></i> <span data-i18n="melsec.control.label.endpoint"></span></label>
 		<input type="text" id="node-input-endpoint" data-i18n="[placeholder]melsec.control.label.endpoint">
@@ -577,7 +577,7 @@
 	</div>
 </script>
 
-<script type="text/html" data-help-name="melsec control">
+<script type="text/html" data-help-name="melsec fx control">
 	<p>Enables advanced control of the PLC and the connection</p>
 	<p>This node was created by <a href="https://st-one.io" target="_blank">ST-One</a></p>
 	
@@ -607,12 +607,12 @@
 </script>
 
 <script type="text/javascript">
-	RED.nodes.registerType('melsec control', {
+	RED.nodes.registerType('melsec fx control', {
 		category: 'plc',
 		defaults: {
 			endpoint: {
 				value: "",
-				type: "melsec endpoint",
+				type: "melsec fx endpoint",
 				required: true
 			},
 			function: {
@@ -626,7 +626,7 @@
 		inputs: 1,
 		outputs: 1,
 		icon: "serial.png",
-		paletteLabel: "melsec control",
+		paletteLabel: "melsec fx control",
 		label: function () {
 			if (this.name) return this.name;
 			return this._("melsec.control.label.name");

@@ -39,7 +39,7 @@
         },
         "in": {
             "label": {
-                "name": "melsec in",
+                "name": "melsec fx in",
                 "endpoint": "PLC",
                 "mode": "Mode",
                 "variable": "Variable",
@@ -55,7 +55,7 @@
         },
         "control": {
             "label": {
-                "name": "melsec control",
+                "name": "melsec fx control",
                 "function": "Function",
                 "endpoint": "PLC"
             },
