@@ -90,7 +90,11 @@ module.exports = function (RED) {
         let readInProgress = false;
         let readDeferred = 0;
         let currentCycleTime = config.cycletime;
-        let _td;
+        let _cycleInterval;
+        let _reconnectInterval = null;
+        let connected = false;
+        let connecting = false;
+        let status;
         let that = this;
         
         RED.nodes.createNode(this, config);
@@ -98,8 +102,15 @@ module.exports = function (RED) {
         //avoids warnings when we have a lot of Melsec In nodes
         this.setMaxListeners(0);
 
+        function manageStatus(newStatus) {
+            if (status == newStatus) return;
+
+            status = newStatus;
+            that.emit('__STATUS__', status);
+        }
+        
         function doCycle() {
-            if (!readInProgress) {
+            if (!readInProgress && connected) {
                 melsec.readAllAddresses().then(cycleCallback).catch(e => {
                     that.error(e);
                     readInProgress = false;
@@ -113,12 +124,14 @@ module.exports = function (RED) {
         function cycleCallback(values) {
             readInProgress = false;
 
-            if (readDeferred) {
+            if (readDeferred && connected) {
                 doCycle();
                 readDeferred = 0;
             }
 
-            //manageStatus('online');
+            manageStatus('online');
+
+            console.log("Endpoint 1:", values);
 
             var changed = false;
             that.emit('__ALL__', values);
@@ -144,7 +157,7 @@ module.exports = function (RED) {
                 return false
             }
 
-            clearInterval(_td);
+            clearInterval(_cycleInterval);
 
             // don't set a new timer if value is zero
             if (!time) return false;
@@ -155,36 +168,75 @@ module.exports = function (RED) {
             } 
 
             currentCycleTime = time;
-            _td = setInterval(doCycle, time);
+            _cycleInterval = setInterval(doCycle, time);
 
             return true;
         }
 
-        async function melsecSetUp(vars) {
-            await melsec.open()
-            .then(() => {
-                melsec.setTranslationCB(k => vars[k]);
+        function onConnect() {
+            if (_reconnectInterval) {
+                clearInterval(_reconnectInterval);
+                _reconnectInterval = null;
+            }
 
-                let varKeys = Object.keys(vars);
-                if (!varKeys || !varKeys.length) {
-                    that.warn(RED._("melsec.endpoint.info.novars"));
-                } else {
-                    melsec.addAddress(varKeys);
-                }
-                return;
-            })
-            .catch(e => {
-                that.error(e);
-                throw e;
-            });
+            connecting = false;
+            readInProgress = false;
+            readDeferred = 0;
+            connected = true;
+
+            manageStatus('online');
+
+            let _vars = createTranslationTable(config.vartable);
+
+            melsec.setTranslationCB(k => _vars[k]);
+
+            let varKeys = Object.keys(_vars);
+            if (!varKeys || !varKeys.length) {
+                that.warn(RED._("melsec.endpoint.info.novars"));
+            } else {
+                melsec.removeAddress(varKeys);
+                melsec.addAddress(varKeys);
+            }
+
+            updateCycleTime(currentCycleTime);
         }
 
-        let _vars = createTranslationTable(config.vartable);
+        async function reconnect() {
+            await melsec.close().catch(onError);
+            if (!connecting) {
+                connecting = true;
+                melsec.open().catch((e) => {
+                    connecting = false;
+                    onError(e);
+                });
+            }
+        }
 
+        function onDisconnect() {
+            manageStatus('offline');
+            connected = false;
+            if (!_reconnectInterval) {
+                _reconnectInterval = setInterval(reconnect, 1000);
+            }
+        }
+
+        function onError(e) {
+            manageStatus('offline');
+            that.error(e && e.toString());
+        }
+
+        manageStatus('offline');
+        
         const melsec = new melsecAdapter();
 
-        melsecSetUp(_vars).then(() => {
-            updateCycleTime(currentCycleTime);
+        melsec.on('connect', onConnect);
+        melsec.on('disconnect', onDisconnect);
+        melsec.on('error', onError);
+
+        connecting = true;
+        melsec.open().catch((e) => {
+            connecting = false;
+            onError(e);
         });
 
         this.on('__DO_CYCLE__', doCycle);
@@ -192,14 +244,25 @@ module.exports = function (RED) {
             obj.err = updateCycleTime(obj.msg.payload);
             that.emit('__UPDATE_CYCLE_RES__', obj);
         });
+        this.on('__GET_STATUS__', () => {
+            that.emit('__STATUS__', status);
+        });
 
         this.on('close', done => {
-            
-            if (_td) clearInterval(_td);
-            melsec.close().then(done).catch(e => {
+            manageStatus('offline');
+            if (_cycleInterval) clearInterval(_cycleInterval);
+
+            this.removeAllListeners();
+            melsec.removeAllListeners();
+
+            melsec.close()
+            .then(() => {
+                done();
+            })
+            .catch(e => {
                 that.error(e);
                 done(e);
-            });;
+            });
         });
         
     }
@@ -210,6 +273,7 @@ module.exports = function (RED) {
     // <Begin> --- Melsec In
     function MelsecIn(config) {
         RED.nodes.createNode(this, config);
+        let statusVal;
         let that = this
 
         let endpoint = RED.nodes.getNode(config.endpoint);
@@ -219,23 +283,26 @@ module.exports = function (RED) {
             return;
         }
 
-        function sendMsg(data, key) {
+        function sendMsg(data, key, status) {
+            console.log("In 2:", data, key);
             if (key === undefined) key = '';
             if (data instanceof Date) data = data.getTime();
             var msg = {
                 payload: data,
                 topic: key
             };
+            statusVal = status !== undefined ? status : data;
             that.send(msg);
+            endpoint.emit('__GET_STATUS__');
         }
         
         function onChanged(variable) {
-            sendMsg(variable.value, variable.key);
+            sendMsg(variable.value, variable.key, null);
         }
 
         function onDataSplit(data) {
             Object.keys(data).forEach(function (key) {
-                sendMsg(data[key], key);
+                sendMsg(data[key], key, null);
             });
         }
 
@@ -244,8 +311,16 @@ module.exports = function (RED) {
         }
 
         function onDataSelect(data) {
+            console.log("In 1:", data);
             onData(data[config.variable]);
         }
+
+        function onEndpointStatus(status) {
+            that.status(generateStatus(status, statusVal));
+        }
+        
+        endpoint.on('__STATUS__', onEndpointStatus);
+        endpoint.emit('__GET_STATUS__');
 
         if (config.diff) {
             switch (config.mode) {
@@ -279,6 +354,7 @@ module.exports = function (RED) {
             endpoint.removeListener('__ALL__', onData);
             endpoint.removeListener('__ALL_CHANGED__', onData);
             endpoint.removeListener('__CHANGED__', onChanged);
+            endpoint.removeListener('__STATUS__', onEndpointStatus);
             endpoint.removeListener(config.variable, onData);
             done();
         });
@@ -290,6 +366,7 @@ module.exports = function (RED) {
 
     // <Begin> --- Melsec Control
     function MelsecControl(config) {
+        let that = this;
         RED.nodes.createNode(this, config);
 
         let endpoint = RED.nodes.getNode(config.endpoint);
@@ -297,6 +374,10 @@ module.exports = function (RED) {
         if (!endpoint) {
             this.error(RED._("melsec.error.missingconfig"));
             return;
+        }
+
+        function onEndpointStatus(status) {
+            that.status(generateStatus(status));
         }
 
         function onMessage(msg, send, done) {
@@ -320,7 +401,7 @@ module.exports = function (RED) {
             }
         }
 
-        endpoint.on('__UPDATE_CYCLE_RES__', (res) => {
+        function onUpdateCycle(res) {
             let err = res.err;
             if (!err) {
                 res.done(err);
@@ -328,10 +409,20 @@ module.exports = function (RED) {
                 res.send(res.msg);
                 res.done();
             }
-        });
+        }
 
+        endpoint.on('__STATUS__', onEndpointStatus);
+        endpoint.on('__UPDATE_CYCLE_RES__', onUpdateCycle);
+
+        endpoint.emit('__GET_STATUS__');
 
         nrInputShim(this, onMessage);
+
+        this.on('close', function (done) {
+            endpoint.removeListener('__STATUS__', onEndpointStatus);
+            endpoint.removeListener('__UPDATE_CYCLE_RES__', onUpdateCycle);
+            done();
+        });
 
     }
     RED.nodes.registerType("melsec control", MelsecControl);
