@@ -235,8 +235,11 @@ module.exports = function (RED) {
         
         manageStatus('connecting');
         melsec.open().catch((e) => {
-            connecting = false;
             onError(e);
+            connecting = false;
+            if (!_reconnectInterval) {
+                _reconnectInterval = setInterval(reconnect, 1000);
+            }
         });
         
 
