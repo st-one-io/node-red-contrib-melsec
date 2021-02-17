@@ -199,16 +199,19 @@ module.exports = function (RED) {
             updateCycleTime(currentCycleTime);
         }
 
-        async function reconnect() {
-            await melsec.close().catch(onError);
-            if (!connecting) {
-                connecting = true;
-                manageStatus('connecting');
-                melsec.open().catch((e) => {
-                    connecting = false;
-                    onError(e);
-                });
-            }
+        function reconnect() {
+            melsec.close()
+            .then(() => {
+                if (!connecting) {
+                    connecting = true;
+                    manageStatus('connecting');
+                    melsec.open().catch((e) => {
+                        connecting = false;
+                        onError(e);
+                    });
+                }
+            })
+            .catch(onError);
         }
 
         function onDisconnect() {
@@ -223,6 +226,7 @@ module.exports = function (RED) {
             manageStatus('offline');
             that.error(e && e.toString());
         }
+
         manageStatus('offline');
         
         const melsec = new melsecAdapter();
@@ -234,14 +238,12 @@ module.exports = function (RED) {
         connecting = true;
         
         manageStatus('connecting');
+
         melsec.open().catch((e) => {
-            onError(e);
             connecting = false;
-            if (!_reconnectInterval) {
-                _reconnectInterval = setInterval(reconnect, 1000);
-            }
+            onError(e);
+            onDisconnect();
         });
-        
 
         this.on('__DO_CYCLE__', doCycle);
         this.on('__UPDATE_CYCLE__', (obj) => {
