@@ -199,26 +199,25 @@ module.exports = function (RED) {
             updateCycleTime(currentCycleTime);
         }
 
-        function reconnect() {
-            melsec.close()
-            .then(() => {
+        async function reconnect() {
+            try {
+                await melsec.close();
                 if (!connecting) {
                     connecting = true;
                     manageStatus('connecting');
-                    melsec.open().catch((e) => {
-                        connecting = false;
-                        onError(e);
-                    });
+                    await melsec.open();
                 }
-            })
-            .catch(onError);
+            } catch (e) {
+                connecting = false;
+                onError(e)
+            }
         }
 
         function onDisconnect() {
             manageStatus('offline');
             connected = false;
             if (!_reconnectInterval) {
-                _reconnectInterval = setInterval(reconnect, 1000);
+                _reconnectInterval = setInterval(reconnect, 5000);
             }
         }
 
@@ -227,10 +226,19 @@ module.exports = function (RED) {
             that.error(e && e.toString());
         }
 
+        function getStatus() {
+            that.emit('__STATUS__', status);
+        }
+
+        function updateCycleEvent(obj) {
+            obj.err = updateCycleTime(obj.msg.payload);
+            that.emit('__UPDATE_CYCLE_RES__', obj);
+        }
+
         manageStatus('offline');
         
-        const melsec = new melsecAdapter();
-
+        let melsec = new melsecAdapter();
+        
         melsec.on('connect', onConnect);
         melsec.on('disconnect', onDisconnect);
         melsec.on('error', onError);
@@ -246,25 +254,23 @@ module.exports = function (RED) {
         });
 
         this.on('__DO_CYCLE__', doCycle);
-        this.on('__UPDATE_CYCLE__', (obj) => {
-            obj.err = updateCycleTime(obj.msg.payload);
-            that.emit('__UPDATE_CYCLE_RES__', obj);
-        });
-        this.on('__GET_STATUS__', () => {
-            that.emit('__STATUS__', status);
-        });
+        this.on('__UPDATE_CYCLE__', updateCycleEvent);
+        this.on('__GET_STATUS__', getStatus);
 
         this.on('close', done => {
             manageStatus('offline');
             if (_cycleInterval) clearInterval(_cycleInterval);
-
-            this.removeAllListeners();
-            melsec.removeAllListeners();
+            if (_reconnectInterval) clearInterval(_reconnectInterval);
+            
+            this.removeListener('__DO_CYCLE__', doCycle);
+            this.removeListener('__UPDATE_CYCLE__', updateCycleEvent);
+            this.removeListener('__GET_STATUS__', getStatus);
+            melsec.removeListener('connect', onConnect);
+            melsec.removeListener('disconnect', onDisconnect);
+            melsec.removeListener('error', onError);
 
             melsec.close()
-            .then(() => {
-                done();
-            })
+            .then(done)
             .catch(e => {
                 that.error(e);
                 done(e);
