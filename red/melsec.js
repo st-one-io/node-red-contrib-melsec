@@ -91,12 +91,11 @@ module.exports = function (RED) {
         let readDeferred = 0;
         let currentCycleTime = config.cycletime;
         let _cycleInterval;
-        let _reconnectInterval = null;
+        let _reconnectTimeout = null;
         let connected = false;
-        let connecting = false;
         let status;
         let that = this;
-        let _vars = null;
+        let melsec = null;
         
         RED.nodes.createNode(this, config);
 
@@ -172,54 +171,65 @@ module.exports = function (RED) {
             return true;
         }
 
-        function onConnect() {
-            if (_reconnectInterval) {
-                clearInterval(_reconnectInterval);
-                _reconnectInterval = null;
+        function removeListeners() {
+            melsec.removeListener('connect', onConnect);
+            melsec.removeListener('disconnect', onDisconnect);
+            melsec.removeListener('error', onError);
+        }
+        
+        async function connect() {
+            
+            if (_reconnectTimeout !== null) {
+                clearTimeout(_reconnectTimeout);
+                _reconnectTimeout = null;
             }
+            
+            if (melsec !== null) {
+                await melsec.close().catch(onError);
+                removeListeners();
+                melsec = null;
+            }
+            
+            melsec = new melsecAdapter();
+        
+            melsec.on('connect', onConnect);
+            melsec.on('disconnect', onDisconnect);
+            melsec.on('error', onError);
+            
+            manageStatus('connecting');
 
-            connecting = false;
+            melsec.open().catch((e) => {
+                onError(e);
+                onDisconnect();
+            });
+        }
+
+        function onConnect() {
             readInProgress = false;
             readDeferred = 0;
             connected = true;
 
             manageStatus('online');
 
-            if (!_vars) {
-                _vars = createTranslationTable(config.vartable);
+            let _vars = createTranslationTable(config.vartable);
 
-                melsec.setTranslationCB(k => _vars[k]);
+            melsec.setTranslationCB(k => _vars[k]);
 
-                let varKeys = Object.keys(_vars);
-                if (!varKeys || !varKeys.length) {
-                    that.warn(RED._("melsec.endpoint.info.novars"));
-                } else {
-                    melsec.addAddress(varKeys);
-                }
+            let varKeys = Object.keys(_vars);
+            if (!varKeys || !varKeys.length) {
+                that.warn(RED._("melsec.endpoint.info.novars"));
+            } else {
+                melsec.addAddress(varKeys);
             }
 
             updateCycleTime(currentCycleTime);
         }
 
-        async function reconnect() {
-            try {
-                await melsec.close();
-                if (!connecting) {
-                    connecting = true;
-                    manageStatus('connecting');
-                    await melsec.open();
-                }
-            } catch (e) {
-                connecting = false;
-                onError(e)
-            }
-        }
-
         function onDisconnect() {
             manageStatus('offline');
             connected = false;
-            if (!_reconnectInterval) {
-                _reconnectInterval = setInterval(reconnect, 5000);
+            if (!_reconnectTimeout) {
+                _reconnectTimeout = setTimeout(connect, 5000);
             }
         }
 
@@ -238,38 +248,22 @@ module.exports = function (RED) {
         }
 
         manageStatus('offline');
-        
-        let melsec = new melsecAdapter();
-        
-        melsec.on('connect', onConnect);
-        melsec.on('disconnect', onDisconnect);
-        melsec.on('error', onError);
-
-        connecting = true;
-        
-        manageStatus('connecting');
-
-        melsec.open().catch((e) => {
-            connecting = false;
-            onError(e);
-            onDisconnect();
-        });
 
         this.on('__DO_CYCLE__', doCycle);
         this.on('__UPDATE_CYCLE__', updateCycleEvent);
         this.on('__GET_STATUS__', getStatus);
 
+        connect();
+
         this.on('close', done => {
             manageStatus('offline');
             if (_cycleInterval) clearInterval(_cycleInterval);
-            if (_reconnectInterval) clearInterval(_reconnectInterval);
+            if (_reconnectTimeout) clearTimeout(_reconnectTimeout);
             
             this.removeListener('__DO_CYCLE__', doCycle);
             this.removeListener('__UPDATE_CYCLE__', updateCycleEvent);
             this.removeListener('__GET_STATUS__', getStatus);
-            melsec.removeListener('connect', onConnect);
-            melsec.removeListener('disconnect', onDisconnect);
-            melsec.removeListener('error', onError);
+            removeListeners();
 
             melsec.close()
             .then(done)
