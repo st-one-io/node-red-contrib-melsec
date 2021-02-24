@@ -96,6 +96,7 @@ module.exports = function (RED) {
         let connecting = false;
         let status;
         let that = this;
+        let _vars = null;
         
         RED.nodes.createNode(this, config);
 
@@ -184,16 +185,17 @@ module.exports = function (RED) {
 
             manageStatus('online');
 
-            let _vars = createTranslationTable(config.vartable);
+            if (!_vars) {
+                _vars = createTranslationTable(config.vartable);
 
-            melsec.setTranslationCB(k => _vars[k]);
+                melsec.setTranslationCB(k => _vars[k]);
 
-            let varKeys = Object.keys(_vars);
-            if (!varKeys || !varKeys.length) {
-                that.warn(RED._("melsec.endpoint.info.novars"));
-            } else {
-                melsec.removeAddress(varKeys);
-                melsec.addAddress(varKeys);
+                let varKeys = Object.keys(_vars);
+                if (!varKeys || !varKeys.length) {
+                    that.warn(RED._("melsec.endpoint.info.novars"));
+                } else {
+                    melsec.addAddress(varKeys);
+                }
             }
 
             updateCycleTime(currentCycleTime);
