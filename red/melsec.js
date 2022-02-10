@@ -4,7 +4,7 @@
   GNU General Public License v3.0+ (see LICENSE or https://www.gnu.org/licenses/gpl-3.0.txt)
 */
 
-const {melsecAdapter} = require('node-melsec');
+const {melsecAdapter} = require('@protocols/node-melsec');
 
 const MIN_CYCLE_TIME = 50;
 

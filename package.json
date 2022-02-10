@@ -28,6 +28,6 @@
     }
   },
   "dependencies": {
-    "node-melsec": "file:..\\node-melsec"
+    "@protocols/node-melsec": "1.0.0-beta.1"
   }
 }
