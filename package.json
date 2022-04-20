@@ -27,7 +27,7 @@
       "melsec": "red/melsec.js"
     }
   },
-  "dependencies": {
+  "optionalDependencies": {
     "@protocols/node-melsec": "1.0.0-beta.1"
   }
 }
