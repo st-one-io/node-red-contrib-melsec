@@ -4,7 +4,12 @@
   GNU General Public License v3.0+ (see LICENSE or https://www.gnu.org/licenses/gpl-3.0.txt)
 */
 
-const {melsecAdapter} = require('@protocols/node-melsec');
+try {
+    var {melsecAdapter} = require('@protocols/node-melsec');
+} catch (error) {
+    var melsecAdapter = null;
+}
+
 
 const MIN_CYCLE_TIME = 50;
 
@@ -179,6 +184,8 @@ module.exports = function (RED) {
         
         async function connect() {
             
+            if (!melsecAdapter) return this.error('Missing "@protocols/node-melsec" dependency, avaliable only on the ST-One hardware. Please contact us at "st-one.io" for pricing and more information.') 
+            
             if (_reconnectTimeout !== null) {
                 clearTimeout(_reconnectTimeout);
                 _reconnectTimeout = null;
@@ -243,8 +250,10 @@ module.exports = function (RED) {
         }
 
         function updateCycleEvent(obj) {
-            obj.err = updateCycleTime(obj.msg.payload);
-            that.emit('__UPDATE_CYCLE_RES__', obj);
+            if (connected) {
+                obj.err = updateCycleTime(obj.msg.payload);
+                that.emit('__UPDATE_CYCLE_RES__', obj);
+            }
         }
 
         manageStatus('offline');
