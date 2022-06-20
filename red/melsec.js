@@ -184,7 +184,7 @@ module.exports = function (RED) {
         
         async function connect() {
             
-            if (!melsecAdapter) return this.error('Missing "@protocols/node-melsec" dependency, avaliable only on the ST-One hardware. Please contact us at "st-one.io" for pricing and more information.') 
+            if (!melsecAdapter) return that.error('Missing "@protocols/node-melsec" dependency, avaliable only on the ST-One hardware. Please contact us at "st-one.io" for pricing and more information.') 
             
             if (_reconnectTimeout !== null) {
                 clearTimeout(_reconnectTimeout);
