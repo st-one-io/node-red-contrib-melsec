@@ -1,6 +1,6 @@
 {
   "name": "node-red-contrib-melsec",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "description": "Node-RED Node to communicate with Mitsubishi FX over Programming Port",
   "main": "melsec.js",
   "scripts": {
@@ -29,5 +29,8 @@
   },
   "optionalDependencies": {
     "@protocols/node-melsec": "1.0.0-beta.1"
-  }
+  },
+  "bundledDependencies": [
+    "@protocols/node-melsec"
+  ]
 }
